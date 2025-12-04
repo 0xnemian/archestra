@@ -482,6 +482,9 @@ describe("getVaultConfigFromEnv", () => {
     process.env.ARCHESTRA_HASHICORP_VAULT_K8S_ROLE = "archestra";
     process.env.ARCHESTRA_HASHICORP_VAULT_SECRET_PATH =
       "custom/data/my-secrets";
+    delete process.env.ARCHESTRA_HASHICORP_VAULT_K8S_TOKEN_PATH;
+    delete process.env.ARCHESTRA_HASHICORP_VAULT_K8S_MOUNT_POINT;
+    delete process.env.ARCHESTRA_HASHICORP_VAULT_SECRET_METADATA_PATH;
 
     const config = getVaultConfigFromEnv();
 
