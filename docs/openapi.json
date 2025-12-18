@@ -20962,6 +20962,9 @@
                       "selectedModel": {
                         "type": "string"
                       },
+                      "isContextUntrusted": {
+                        "type": "boolean"
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time"
@@ -20978,11 +20981,15 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "considerContextUntrusted": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "id",
-                          "name"
+                          "name",
+                          "considerContextUntrusted"
                         ],
                         "additionalProperties": false
                       },
@@ -20999,6 +21006,7 @@
                       "promptId",
                       "title",
                       "selectedModel",
+                      "isContextUntrusted",
                       "createdAt",
                       "updatedAt",
                       "agent",
@@ -21298,6 +21306,9 @@
                     "selectedModel": {
                       "type": "string"
                     },
+                    "isContextUntrusted": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -21314,11 +21325,15 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "considerContextUntrusted": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "id",
-                        "name"
+                        "name",
+                        "considerContextUntrusted"
                       ],
                       "additionalProperties": false
                     },
@@ -21335,6 +21350,7 @@
                     "promptId",
                     "title",
                     "selectedModel",
+                    "isContextUntrusted",
                     "createdAt",
                     "updatedAt",
                     "agent",
@@ -21614,6 +21630,9 @@
                     "selectedModel": {
                       "type": "string"
                     },
+                    "isContextUntrusted": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -21630,11 +21649,15 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "considerContextUntrusted": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "id",
-                        "name"
+                        "name",
+                        "considerContextUntrusted"
                       ],
                       "additionalProperties": false
                     },
@@ -21651,6 +21674,7 @@
                     "promptId",
                     "title",
                     "selectedModel",
+                    "isContextUntrusted",
                     "createdAt",
                     "updatedAt",
                     "agent",
@@ -21891,6 +21915,9 @@
                   },
                   "selectedModel": {
                     "type": "string"
+                  },
+                  "isContextUntrusted": {
+                    "type": "boolean"
                   }
                 }
               }
@@ -21946,6 +21973,9 @@
                     "selectedModel": {
                       "type": "string"
                     },
+                    "isContextUntrusted": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -21962,11 +21992,15 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "considerContextUntrusted": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "id",
-                        "name"
+                        "name",
+                        "considerContextUntrusted"
                       ],
                       "additionalProperties": false
                     },
@@ -21983,6 +22017,7 @@
                     "promptId",
                     "title",
                     "selectedModel",
+                    "isContextUntrusted",
                     "createdAt",
                     "updatedAt",
                     "agent",
@@ -22792,6 +22827,9 @@
                     "selectedModel": {
                       "type": "string"
                     },
+                    "isContextUntrusted": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -22808,11 +22846,15 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "considerContextUntrusted": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "id",
-                        "name"
+                        "name",
+                        "considerContextUntrusted"
                       ],
                       "additionalProperties": false
                     },
@@ -22829,6 +22871,7 @@
                     "promptId",
                     "title",
                     "selectedModel",
+                    "isContextUntrusted",
                     "createdAt",
                     "updatedAt",
                     "agent",

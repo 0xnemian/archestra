@@ -12,6 +12,7 @@ export const SelectConversationSchema = createSelectSchema(
   agent: z.object({
     id: z.string(),
     name: z.string(),
+    considerContextUntrusted: z.boolean(),
   }),
   messages: z.array(z.any()), // UIMessage[] from AI SDK
 });
@@ -29,6 +30,7 @@ export const UpdateConversationSchema = createUpdateSchema(
 ).pick({
   title: true,
   selectedModel: true,
+  isContextUntrusted: true,
 });
 
 export type Conversation = z.infer<typeof SelectConversationSchema>;

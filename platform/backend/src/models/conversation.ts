@@ -33,6 +33,7 @@ class ConversationModel {
         agent: {
           id: schema.agentsTable.id,
           name: schema.agentsTable.name,
+          considerContextUntrusted: schema.agentsTable.considerContextUntrusted,
         },
       })
       .from(schema.conversationsTable)
@@ -87,6 +88,7 @@ class ConversationModel {
         agent: {
           id: schema.agentsTable.id,
           name: schema.agentsTable.name,
+          considerContextUntrusted: schema.agentsTable.considerContextUntrusted,
         },
       })
       .from(schema.conversationsTable)

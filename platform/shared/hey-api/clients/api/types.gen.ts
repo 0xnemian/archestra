@@ -6730,11 +6730,13 @@ export type GetChatConversationsResponses = {
         promptId: string | null;
         title: string | null;
         selectedModel: string;
+        isContextUntrusted: boolean;
         createdAt: string;
         updatedAt: string;
         agent: {
             id: string;
             name: string;
+            considerContextUntrusted: boolean;
         };
         messages: Array<unknown>;
     }>;
@@ -6825,11 +6827,13 @@ export type CreateChatConversationResponses = {
         promptId: string | null;
         title: string | null;
         selectedModel: string;
+        isContextUntrusted: boolean;
         createdAt: string;
         updatedAt: string;
         agent: {
             id: string;
             name: string;
+            considerContextUntrusted: boolean;
         };
         messages: Array<unknown>;
     };
@@ -6996,11 +7000,13 @@ export type GetChatConversationResponses = {
         promptId: string | null;
         title: string | null;
         selectedModel: string;
+        isContextUntrusted: boolean;
         createdAt: string;
         updatedAt: string;
         agent: {
             id: string;
             name: string;
+            considerContextUntrusted: boolean;
         };
         messages: Array<unknown>;
     };
@@ -7012,6 +7018,7 @@ export type UpdateChatConversationData = {
     body?: {
         title?: string | null;
         selectedModel?: string;
+        isContextUntrusted?: boolean;
     };
     path: {
         id: string;
@@ -7091,11 +7098,13 @@ export type UpdateChatConversationResponses = {
         promptId: string | null;
         title: string | null;
         selectedModel: string;
+        isContextUntrusted: boolean;
         createdAt: string;
         updatedAt: string;
         agent: {
             id: string;
             name: string;
+            considerContextUntrusted: boolean;
         };
         messages: Array<unknown>;
     };
@@ -7271,11 +7280,13 @@ export type GenerateChatConversationTitleResponses = {
         promptId: string | null;
         title: string | null;
         selectedModel: string;
+        isContextUntrusted: boolean;
         createdAt: string;
         updatedAt: string;
         agent: {
             id: string;
             name: string;
+            considerContextUntrusted: boolean;
         };
         messages: Array<unknown>;
     };

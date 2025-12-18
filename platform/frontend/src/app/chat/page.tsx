@@ -1,7 +1,7 @@
 "use client";
 
 import type { UIMessage } from "@ai-sdk/react";
-import { Eye, EyeOff, Plus } from "lucide-react";
+import { Eye, EyeOff, Plus, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -529,10 +529,30 @@ export default function ChatPage() {
           <div className="sticky top-0 z-10 bg-background border-b p-2 flex items-center justify-between">
             <div className="flex-1" />
             {conversation?.agent?.name && (
-              <div className="flex-1 text-center">
+              <div className="flex-1 flex items-center justify-center gap-2">
                 <span className="text-sm font-medium text-muted-foreground">
                   {conversation.agent.name}
                 </span>
+                {(conversation.agent.considerContextUntrusted ||
+                  conversation.isContextUntrusted) && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs font-medium">
+                          <ShieldAlert className="h-3 w-3" />
+                          Untrusted Context
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-sm">
+                          {conversation.agent.considerContextUntrusted
+                            ? "This profile is configured to treat all context as untrusted. Tool outputs are sanitized for safety."
+                            : "Context became untrusted during this conversation. Tool outputs may be sanitized."}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
             )}
             <div className="flex-1 flex justify-end gap-2 items-center">

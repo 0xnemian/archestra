@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import agentsTable from "./agent";
 import promptsTable from "./prompt";
 
@@ -14,6 +14,7 @@ const conversationsTable = pgTable("conversations", {
   }),
   title: text("title"),
   selectedModel: text("selected_model").notNull().default("gpt-4o"),
+  isContextUntrusted: boolean("is_context_untrusted").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" })
     .notNull()
