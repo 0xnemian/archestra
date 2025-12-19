@@ -16,7 +16,7 @@ export default function NotFound() {
         {/* Message */}
         <div className="flex flex-col items-center gap-3 -mt-6">
           <h2 className="text-2xl font-semibold tracking-tight">
-            Page Not Found :(
+            Page Not Found
           </h2>
           <p className="text-muted-foreground text-sm max-w-md">
             Sorry! If that's unexpected, please{" "}
