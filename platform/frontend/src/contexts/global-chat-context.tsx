@@ -32,7 +32,6 @@ interface ChatSession {
   error: Error | undefined;
   setMessages: (messages: UIMessage[]) => void;
   addToolResult: ReturnType<typeof useChat>["addToolResult"];
-  lastAccessTime: number;
   pendingCustomServerToolCall: {
     toolCallId: string;
     toolName: string;
@@ -47,6 +46,9 @@ interface ChatContextValue {
   getSession: (conversationId: string) => ChatSession | undefined;
   clearSession: (conversationId: string) => void;
   notifySessionUpdate: () => void;
+  sessionsRef: React.MutableRefObject<Map<string, ChatSession>>;
+  cleanupTimersRef: React.MutableRefObject<Map<string, NodeJS.Timeout>>;
+  setSessions: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -54,7 +56,7 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 export function ChatProvider({ children }: { children: ReactNode }) {
   const sessionsRef = useRef(new Map<string, ChatSession>());
   const cleanupTimersRef = useRef(new Map<string, NodeJS.Timeout>());
-  const [activeSessions, setActiveSessions] = useState<Set<string>>(new Set());
+  const [sessions, setSessions] = useState<Set<string>>(new Set());
   // Version counter to trigger re-renders when sessions update
   const [sessionVersion, setSessionVersion] = useState(0);
 
@@ -63,37 +65,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setSessionVersion((v) => v + 1);
   }, []);
 
-  // Schedule cleanup for inactive sessions
-  const scheduleCleanup = useCallback((conversationId: string) => {
-    // Clear existing timer
-    const existingTimer = cleanupTimersRef.current.get(conversationId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-
-    // Schedule new cleanup
-    const timer = setTimeout(() => {
-      const session = sessionsRef.current.get(conversationId);
-      if (
-        session &&
-        Date.now() - session.lastAccessTime >= SESSION_CLEANUP_TIMEOUT
-      ) {
-        sessionsRef.current.delete(conversationId);
-        cleanupTimersRef.current.delete(conversationId);
-        setActiveSessions((prev) => {
-          const next = new Set(prev);
-          next.delete(conversationId);
-          return next;
-        });
-      }
-    }, SESSION_CLEANUP_TIMEOUT);
-
-    cleanupTimersRef.current.set(conversationId, timer);
-  }, []);
-
   // Register a new session (creates the useChat hook instance)
   const registerSession = useCallback((conversationId: string) => {
-    setActiveSessions((prev) => {
+    setSessions((prev) => {
       if (prev.has(conversationId)) {
         return prev;
       }
@@ -107,16 +81,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionVersion as dependency to make this reactive
   const getSession = useCallback(
     (conversationId: string) => {
-      const session = sessionsRef.current.get(conversationId);
-      if (session) {
-        // Update last access time
-        session.lastAccessTime = Date.now();
-        // Reschedule cleanup
-        scheduleCleanup(conversationId);
-      }
-      return session;
+      return sessionsRef.current.get(conversationId);
     },
-    [scheduleCleanup, sessionVersion],
+    [sessionVersion],
   );
 
   // Clear a session manually
@@ -128,7 +95,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         clearTimeout(timer);
         cleanupTimersRef.current.delete(conversationId);
       }
-      setActiveSessions((prev) => {
+      setSessions((prev) => {
         const next = new Set(prev);
         next.delete(conversationId);
         return next;
@@ -155,6 +122,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       getSession,
       clearSession,
       notifySessionUpdate,
+      sessionsRef,
+      cleanupTimersRef,
+      setSessions,
     }),
     [registerSession, getSession, clearSession, notifySessionUpdate],
   );
@@ -162,12 +132,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   return (
     <ChatContext.Provider value={value}>
       {/* Render hidden session components for each active conversation */}
-      {Array.from(activeSessions).map((conversationId) => (
+      {Array.from(sessions).map((conversationId) => (
         <ChatSessionHook
           key={conversationId}
           conversationId={conversationId}
           sessionsRef={sessionsRef}
-          scheduleCleanup={scheduleCleanup}
           notifySessionUpdate={notifySessionUpdate}
         />
       ))}
@@ -179,12 +148,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 function ChatSessionHook({
   conversationId,
   sessionsRef,
-  scheduleCleanup,
   notifySessionUpdate,
 }: {
   conversationId: string;
   sessionsRef: React.MutableRefObject<Map<string, ChatSession>>;
-  scheduleCleanup: (conversationId: string) => void;
   notifySessionUpdate: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -280,13 +247,11 @@ function ChatSessionHook({
       error,
       setMessages,
       addToolResult,
-      lastAccessTime: Date.now(),
       pendingCustomServerToolCall,
       setPendingCustomServerToolCall,
     };
 
     sessionsRef.current.set(conversationId, session);
-    scheduleCleanup(conversationId);
     // Notify that session has been updated so consumers re-render
     notifySessionUpdate();
   }, [
@@ -300,7 +265,6 @@ function ChatSessionHook({
     addToolResult,
     pendingCustomServerToolCall,
     sessionsRef,
-    scheduleCleanup,
     notifySessionUpdate,
   ]);
 
@@ -316,13 +280,43 @@ export function useGlobalChat() {
 }
 
 export function useChatSession(conversationId: string | undefined) {
-  const { registerSession, getSession } = useGlobalChat();
+  const {
+    registerSession,
+    getSession,
+    sessionsRef,
+    cleanupTimersRef,
+    setSessions,
+  } = useGlobalChat();
 
   useEffect(() => {
     if (conversationId) {
       registerSession(conversationId);
+      const timer = cleanupTimersRef.current.get(conversationId);
+      if (timer) {
+        clearTimeout(timer);
+        cleanupTimersRef.current.delete(conversationId);
+      }
+      return function scheduleCleanup() {
+        const timer = setTimeout(() => {
+          sessionsRef.current.delete(conversationId);
+          cleanupTimersRef.current.delete(conversationId);
+          setSessions((prev) => {
+            const next = new Set(prev);
+            next.delete(conversationId);
+            return next;
+          });
+        }, SESSION_CLEANUP_TIMEOUT);
+
+        cleanupTimersRef.current.set(conversationId, timer);
+      };
     }
-  }, [conversationId, registerSession]);
+  }, [
+    conversationId,
+    registerSession,
+    sessionsRef,
+    cleanupTimersRef,
+    setSessions,
+  ]);
 
   return conversationId ? getSession(conversationId) : null;
 }
