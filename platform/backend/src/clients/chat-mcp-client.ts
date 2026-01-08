@@ -436,6 +436,9 @@ export async function getChatMcpTools({
   conversationId,
   promptId,
   organizationId,
+  contextIsUntrusted,
+  onToolResultUntrusted,
+  delegationChain,
 }: {
   agentName: string;
   agentId: string;
@@ -445,6 +448,12 @@ export async function getChatMcpTools({
   conversationId?: string;
   promptId?: string;
   organizationId?: string;
+  /** Current context trust state (for passing to nested delegations) */
+  contextIsUntrusted?: boolean;
+  /** Callback when a tool returns untrusted data */
+  onToolResultUntrusted?: () => void;
+  /** Chain of agent IDs for cycle/depth detection */
+  delegationChain?: string[];
 }): Promise<Record<string, Tool>> {
   const toolCacheKey = getToolCacheKey(agentId, userId, promptId);
 
@@ -698,6 +707,9 @@ export async function getChatMcpTools({
                 userId: mcpGwToken.isUserToken ? userId : undefined,
               }
             : undefined,
+          // Trust state for nested delegations
+          contextIsUntrusted,
+          delegationChain,
         };
 
         // Convert agent tools to AI SDK Tool format
@@ -738,6 +750,21 @@ export async function getChatMcpTools({
                     )
                     .join("\n");
                   throw new Error(errorText);
+                }
+
+                // Check if delegated agent signaled untrusted context
+                // biome-ignore lint/suspicious/noExplicitAny: _meta is dynamic
+                const meta = (response as any)._meta;
+                if (meta?.contextBecameUntrusted && onToolResultUntrusted) {
+                  logger.info(
+                    {
+                      agentId,
+                      userId,
+                      toolName: agentTool.name,
+                    },
+                    "Delegated agent returned with untrusted context, propagating to parent",
+                  );
+                  onToolResultUntrusted();
                 }
 
                 const content = (

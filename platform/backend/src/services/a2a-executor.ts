@@ -10,6 +10,10 @@ export interface A2AExecuteParams {
   message: string;
   organizationId: string;
   userId: string;
+  /** If true, treat context as untrusted from start (inherited from parent agent) */
+  parentContextIsUntrusted?: boolean;
+  /** Chain of agent IDs for cycle/depth detection */
+  delegationChain?: string[];
 }
 
 export interface A2AExecuteResult {
@@ -21,7 +25,11 @@ export interface A2AExecuteResult {
     completionTokens: number;
     totalTokens: number;
   };
+  /** True if any tool returned untrusted data during execution */
+  contextBecameUntrusted: boolean;
 }
+
+const MAX_DELEGATION_DEPTH = 5;
 
 /**
  * Execute a message against an A2A agent (prompt)
@@ -30,7 +38,21 @@ export interface A2AExecuteResult {
 export async function executeA2AMessage(
   params: A2AExecuteParams,
 ): Promise<A2AExecuteResult> {
-  const { promptId, message, organizationId, userId } = params;
+  const {
+    promptId,
+    message,
+    organizationId,
+    userId,
+    parentContextIsUntrusted,
+    delegationChain,
+  } = params;
+
+  // Check delegation depth to prevent deep recursion
+  if (delegationChain && delegationChain.length >= MAX_DELEGATION_DEPTH) {
+    throw new Error(
+      `Maximum delegation depth (${MAX_DELEGATION_DEPTH}) exceeded`,
+    );
+  }
 
   // Fetch prompt
   const prompt = await PromptModel.findById(promptId);
@@ -44,7 +66,20 @@ export async function executeA2AMessage(
     throw new Error(`Agent not found for prompt ${promptId}`);
   }
 
+<<<<<<< Updated upstream
   // Use default model and provider from config
+=======
+  // Context is untrusted if:
+  // 1. Parent context is untrusted (inherited from calling agent), OR
+  // 2. This agent has considerContextUntrusted=true
+  const startWithUntrustedContext =
+    parentContextIsUntrusted || agent.considerContextUntrusted || false;
+
+  // Track if context becomes untrusted during execution
+  let contextBecameUntrusted = startWithUntrustedContext;
+
+  // Use default model from config
+>>>>>>> Stashed changes
   const selectedModel = config.chat.defaultModel;
   const provider = config.chat.defaultProvider;
 
@@ -65,6 +100,11 @@ export async function executeA2AMessage(
     systemPrompt = allParts.join("\n\n");
   }
 
+  // Build delegation chain for nested delegations
+  const currentDelegationChain = delegationChain
+    ? [...delegationChain, agent.id]
+    : [agent.id];
+
   // Fetch MCP tools for the agent (including agent tools for the prompt)
   const mcpTools = await getChatMcpTools({
     agentName: agent.name,
@@ -73,6 +113,14 @@ export async function executeA2AMessage(
     userIsProfileAdmin: true, // A2A agents have full access
     promptId,
     organizationId,
+    // Pass context trust state for tool execution
+    contextIsUntrusted: startWithUntrustedContext,
+    // Callback when tool returns untrusted data
+    onToolResultUntrusted: () => {
+      contextBecameUntrusted = true;
+    },
+    // For nested delegations (cycle/depth detection)
+    delegationChain: currentDelegationChain,
   });
 
   logger.info(
@@ -84,6 +132,8 @@ export async function executeA2AMessage(
       toolCount: Object.keys(mcpTools).length,
       model: selectedModel,
       hasSystemPrompt: !!systemPrompt,
+      startWithUntrustedContext,
+      delegationDepth: currentDelegationChain.length,
     },
     "Starting A2A execution",
   );
@@ -123,6 +173,7 @@ export async function executeA2AMessage(
       finishReason,
       usage,
       messageId,
+      contextBecameUntrusted,
     },
     "A2A execution finished",
   );
@@ -138,5 +189,6 @@ export async function executeA2AMessage(
           totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
         }
       : undefined,
+    contextBecameUntrusted,
   };
 }

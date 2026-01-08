@@ -112,6 +112,10 @@ export interface ArchestraContext {
   organizationId?: string;
   /** Token authentication result */
   tokenAuth?: TokenAuthResult;
+  /** Current context trust state (from parent agent or tool results) */
+  contextIsUntrusted?: boolean;
+  /** Chain of agent IDs for cycle/depth detection in nested delegations */
+  delegationChain?: string[];
 }
 
 /**
@@ -122,7 +126,14 @@ export async function executeArchestraTool(
   args: Record<string, unknown> | undefined,
   context: ArchestraContext,
 ): Promise<CallToolResult> {
-  const { profile, promptId, organizationId, tokenAuth } = context;
+  const {
+    profile,
+    promptId,
+    organizationId,
+    tokenAuth,
+    contextIsUntrusted,
+    delegationChain,
+  } = context;
 
   // Handle dynamic agent tools (e.g., agent__research_bot)
   if (toolName.startsWith(AGENT_TOOL_PREFIX)) {
@@ -193,6 +204,28 @@ export async function executeArchestraTool(
       }
     }
 
+    // Check for circular delegation
+    const currentChain = delegationChain ?? [];
+    if (currentChain.includes(agent.profileId)) {
+      logger.warn(
+        {
+          promptId,
+          agentProfileId: agent.profileId,
+          delegationChain: currentChain,
+        },
+        "Circular delegation detected",
+      );
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Error: Circular delegation detected. This agent is already in the delegation chain.",
+          },
+        ],
+        isError: true,
+      };
+    }
+
     try {
       logger.info(
         {
@@ -201,6 +234,8 @@ export async function executeArchestraTool(
           agentName: agent.name,
           organizationId,
           userId: userId || "system",
+          parentContextIsUntrusted: contextIsUntrusted ?? false,
+          delegationDepth: currentChain.length,
         },
         "Executing agent tool",
       );
@@ -210,11 +245,31 @@ export async function executeArchestraTool(
         message,
         organizationId,
         userId: userId || "system",
+        // Pass parent context trust state to delegated agent
+        parentContextIsUntrusted: contextIsUntrusted ?? false,
+        // Pass delegation chain for cycle/depth detection
+        delegationChain: currentChain,
       });
+
+      // Log if context became untrusted during delegation
+      if (result.contextBecameUntrusted) {
+        logger.info(
+          {
+            promptId,
+            agentPromptId: agent.agentPromptId,
+            parentProfileId: profile.id,
+          },
+          "Context became untrusted during agent delegation",
+        );
+      }
 
       return {
         content: [{ type: "text", text: result.text }],
         isError: false,
+        // Include trust status metadata in result for parent to handle
+        _meta: {
+          contextBecameUntrusted: result.contextBecameUntrusted,
+        },
       };
     } catch (error) {
       logger.error(

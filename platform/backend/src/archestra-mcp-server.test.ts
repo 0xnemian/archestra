@@ -627,3 +627,133 @@ test("isArchestraMcpServerTool", () => {
   expect(isArchestraMcpServerTool("archestra__create_profile")).toBe(true);
   expect(isArchestraMcpServerTool("mcp_server__tool")).toBe(false);
 });
+
+describe("Agent delegation trust propagation", () => {
+  describe("ArchestraContext trust fields", () => {
+    test("should accept contextIsUntrusted in context", async ({
+      makeAgent,
+    }) => {
+      const testProfile = await makeAgent({ name: "Test Profile" });
+      const mockContext: ArchestraContext = {
+        profile: {
+          id: testProfile.id,
+          name: testProfile.name,
+        },
+        contextIsUntrusted: true,
+      };
+
+      // A non-agent tool should still work with the new context fields
+      const result = await executeArchestraTool(
+        `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}whoami`,
+        undefined,
+        mockContext,
+      );
+
+      expect(result.isError).toBe(false);
+      expect((result.content[0] as any).text).toContain("Test Profile");
+    });
+
+    test("should accept delegationChain in context", async ({ makeAgent }) => {
+      const testProfile = await makeAgent({ name: "Test Profile" });
+      const mockContext: ArchestraContext = {
+        profile: {
+          id: testProfile.id,
+          name: testProfile.name,
+        },
+        delegationChain: ["agent-1", "agent-2"],
+      };
+
+      // A non-agent tool should still work with the new context fields
+      const result = await executeArchestraTool(
+        `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}whoami`,
+        undefined,
+        mockContext,
+      );
+
+      expect(result.isError).toBe(false);
+      expect((result.content[0] as any).text).toContain("Test Profile");
+    });
+  });
+
+  describe("circular delegation detection", () => {
+    test("should detect circular delegation when agent is in chain", async ({
+      makeAgent,
+      makeOrganization,
+      makeUser,
+      makeTeam,
+      makeTeamMember,
+    }) => {
+      // Create the organization, user, and team first
+      const user = await makeUser();
+      const organization = await makeOrganization();
+      const team = await makeTeam(organization.id, user.id);
+      // Add user to team so they have access to agents assigned to this team
+      await makeTeamMember(team.id, user.id);
+
+      // Create a main agent (profile) - assign to team so user has access
+      const mainAgent = await makeAgent({
+        name: "Main Agent",
+        teams: [team.id],
+      });
+
+      // Create a delegate agent - assign to team so user has access
+      const delegateAgent = await makeAgent({
+        name: "Delegate Agent",
+        teams: [team.id],
+      });
+
+      // Create prompt and agent relationship
+      const { PromptModel, PromptAgentModel } = await import("@/models");
+
+      // Create prompts for both agents
+      const mainPrompt = await PromptModel.create(organization.id, {
+        name: "Main Prompt",
+        agentId: mainAgent.id,
+      });
+
+      const delegatePrompt = await PromptModel.create(organization.id, {
+        name: "Delegate Prompt",
+        agentId: delegateAgent.id,
+      });
+
+      // Add the delegate agent as a delegation target for main prompt
+      await PromptAgentModel.create({
+        promptId: mainPrompt.id,
+        agentPromptId: delegatePrompt.id,
+      });
+
+      // Context simulating that delegateAgent's profile is already in the chain (circular)
+      const mockContext: ArchestraContext = {
+        profile: {
+          id: mainAgent.id,
+          name: mainAgent.name,
+        },
+        promptId: mainPrompt.id,
+        organizationId: organization.id,
+        // Simulate that delegateAgent's profile is already in the chain
+        delegationChain: [delegateAgent.id],
+        tokenAuth: {
+          tokenId: "test-token",
+          teamId: team.id,
+          isOrganizationToken: false,
+          organizationId: organization.id,
+          isUserToken: true,
+          userId: user.id,
+        },
+      };
+
+      // Try to call the agent tool - should detect circular delegation
+      // Tool name is based on the prompt name slugified: "Delegate Prompt" -> "delegate_prompt"
+      const result = await executeArchestraTool(
+        `agent__delegate_prompt`,
+        { message: "Hello" },
+        mockContext,
+      );
+
+      expect(result.isError).toBe(true);
+      expect((result.content[0] as any).text).toContain(
+        "Circular delegation detected",
+      );
+    });
+  });
+});
