@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DebouncedInput } from "@/components/debounced-input";
 import { LoadingSpinner } from "@/components/loading";
+import { PermissivePolicyOverlay } from "@/components/permissive-policy-overlay";
 import {
   DYNAMIC_CREDENTIAL_VALUE,
   TokenSelect,
@@ -953,271 +954,282 @@ export function AssignedToolsTable({
   }, [mcpServers]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <DebouncedInput
-            placeholder="Search tools by name..."
-            initialValue={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-9"
+    <PermissivePolicyOverlay>
+      <div className="space-y-6">
+        <div className="flex flex-wrap gap-4">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <DebouncedInput
+              placeholder="Search tools by name..."
+              initialValue={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-9"
+            />
+          </div>
+
+          <SearchableSelect
+            value={agentFilter}
+            onValueChange={handleProfileFilterChange}
+            placeholder="Filter by Profile"
+            items={[
+              { value: "all", label: "All Profiles" },
+              ...(agents?.map((agent) => ({
+                value: agent.id,
+                label: agent.name,
+              })) || []),
+            ]}
+            className="w-[200px]"
+          />
+
+          <SearchableSelect
+            value={originFilter}
+            onValueChange={handleOriginFilterChange}
+            placeholder="Filter by Origin"
+            items={[
+              { value: "all", label: "All Origins" },
+              { value: "llm-proxy", label: "LLM Proxy" },
+              ...uniqueOrigins.map((origin) => ({
+                value: origin.id,
+                label: origin.name,
+              })),
+            ]}
+            className="w-[200px]"
+          />
+
+          <SearchableSelect
+            value={credentialFilter}
+            onValueChange={handleCredentialFilterChange}
+            placeholder="Filter by Credential"
+            items={[
+              { value: "all", label: "All Credentials" },
+              ...uniqueCredentials.map((credential) => ({
+                value: credential.ownerId || "",
+                label: credential.ownerEmail || credential.name,
+              })),
+            ]}
+            className="w-[200px]"
           />
         </div>
 
-        <SearchableSelect
-          value={agentFilter}
-          onValueChange={handleProfileFilterChange}
-          placeholder="Filter by Profile"
-          items={[
-            { value: "all", label: "All Profiles" },
-            ...(agents?.map((agent) => ({
-              value: agent.id,
-              label: agent.name,
-            })) || []),
-          ]}
-          className="w-[200px]"
-        />
-
-        <SearchableSelect
-          value={originFilter}
-          onValueChange={handleOriginFilterChange}
-          placeholder="Filter by Origin"
-          items={[
-            { value: "all", label: "All Origins" },
-            { value: "llm-proxy", label: "LLM Proxy" },
-            ...uniqueOrigins.map((origin) => ({
-              value: origin.id,
-              label: origin.name,
-            })),
-          ]}
-          className="w-[200px]"
-        />
-
-        <SearchableSelect
-          value={credentialFilter}
-          onValueChange={handleCredentialFilterChange}
-          placeholder="Filter by Credential"
-          items={[
-            { value: "all", label: "All Credentials" },
-            ...uniqueCredentials.map((credential) => ({
-              value: credential.ownerId || "",
-              label: credential.ownerEmail || credential.name,
-            })),
-          ]}
-          className="w-[200px]"
-        />
-      </div>
-
-      <div className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg">
-        <div className="flex items-center gap-3">
-          {hasSelection ? (
-            <>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <span className="text-sm font-semibold text-primary">
-                  {selectedTools.length}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg">
+            <div className="flex items-center gap-3">
+              {hasSelection ? (
+                <>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    <span className="text-sm font-semibold text-primary">
+                      {selectedTools.length}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium">
+                    {selectedTools.length === 1
+                      ? "tool selected"
+                      : "tools selected"}
+                  </span>
+                  {isBulkUpdating && (
+                    <LoadingSpinner className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  Select tools to apply bulk actions
                 </span>
-              </div>
-              <span className="text-sm font-medium">
-                {selectedTools.length === 1
-                  ? "tool selected"
-                  : "tools selected"}
-              </span>
-              {isBulkUpdating && (
-                <LoadingSpinner className="h-4 w-4 text-muted-foreground" />
               )}
-            </>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              Select tools to apply bulk actions
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              In untrusted context:
-            </span>
-            <ButtonGroup>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("allowUsageWhenUntrustedDataIsPresent", true)
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Allow
-              </PermissionButton>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction(
-                    "allowUsageWhenUntrustedDataIsPresent",
-                    false,
-                  )
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Block
-              </PermissionButton>
-            </ButtonGroup>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Results are:</span>
-            <ButtonGroup>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("toolResultTreatment", "trusted")
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Trusted
-              </PermissionButton>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("toolResultTreatment", "untrusted")
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Untrusted
-              </PermissionButton>
-              <Tooltip>
-                <TooltipTrigger asChild>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  In untrusted context:
+                </span>
+                <ButtonGroup>
                   <PermissionButton
+                    permissions={{ tool: ["update"] }}
                     size="sm"
                     variant="outline"
-                    permissions={{ tool: ["update"] }}
                     onClick={() =>
                       handleBulkAction(
-                        "toolResultTreatment",
-                        "sanitize_with_dual_llm",
+                        "allowUsageWhenUntrustedDataIsPresent",
+                        true,
                       )
                     }
                     disabled={!hasSelection || isBulkUpdating}
                   >
-                    Dual LLM
+                    Allow
+                  </PermissionButton>
+                  <PermissionButton
+                    permissions={{ tool: ["update"] }}
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      handleBulkAction(
+                        "allowUsageWhenUntrustedDataIsPresent",
+                        false,
+                      )
+                    }
+                    disabled={!hasSelection || isBulkUpdating}
+                  >
+                    Block
+                  </PermissionButton>
+                </ButtonGroup>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Results are:
+                </span>
+                <ButtonGroup>
+                  <PermissionButton
+                    permissions={{ tool: ["update"] }}
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      handleBulkAction("toolResultTreatment", "trusted")
+                    }
+                    disabled={!hasSelection || isBulkUpdating}
+                  >
+                    Trusted
+                  </PermissionButton>
+                  <PermissionButton
+                    permissions={{ tool: ["update"] }}
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      handleBulkAction("toolResultTreatment", "untrusted")
+                    }
+                    disabled={!hasSelection || isBulkUpdating}
+                  >
+                    Untrusted
+                  </PermissionButton>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PermissionButton
+                        size="sm"
+                        variant="outline"
+                        permissions={{ tool: ["update"] }}
+                        onClick={() =>
+                          handleBulkAction(
+                            "toolResultTreatment",
+                            "sanitize_with_dual_llm",
+                          )
+                        }
+                        disabled={!hasSelection || isBulkUpdating}
+                      >
+                        Dual LLM
+                      </PermissionButton>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Sanitize with Dual LLM</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </ButtonGroup>
+              </div>
+              <div className="ml-2 h-4 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PermissionButton
+                    permissions={{ profile: ["update"], tool: ["update"] }}
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAutoConfigurePolicies}
+                    disabled={
+                      !hasSelection ||
+                      isBulkUpdating ||
+                      autoConfigureMutation.isPending
+                    }
+                  >
+                    {autoConfigureMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Configuring...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        Configure with Subagent
+                      </>
+                    )}
                   </PermissionButton>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Sanitize with Dual LLM</p>
+                  <p>
+                    Automatically configure security policies using AI analysis
+                  </p>
                 </TooltipContent>
               </Tooltip>
-            </ButtonGroup>
-          </div>
-          <div className="ml-2 h-4 w-px bg-border" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PermissionButton
-                permissions={{ profile: ["update"], tool: ["update"] }}
+              <Button
                 size="sm"
-                variant="outline"
-                onClick={handleAutoConfigurePolicies}
-                disabled={
-                  !hasSelection ||
-                  isBulkUpdating ||
-                  autoConfigureMutation.isPending
-                }
+                variant="ghost"
+                onClick={clearSelection}
+                disabled={!hasSelection || isBulkUpdating}
               >
-                {autoConfigureMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Configuring...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4" />
-                    Configure with Subagent
-                  </>
-                )}
-              </PermissionButton>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Automatically configure security policies using AI analysis</p>
-            </TooltipContent>
-          </Tooltip>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={clearSelection}
-            disabled={!hasSelection || isBulkUpdating}
-          >
-            Clear selection
-          </Button>
-        </div>
-      </div>
+                Clear selection
+              </Button>
+            </div>
+          </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <LoadingSpinner />
-        </div>
-      ) : agentTools.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            {searchQuery ||
-            agentFilter !== DEFAULT_FILTER_ALL ||
-            originFilter !== DEFAULT_FILTER_ALL ||
-            credentialFilter !== DEFAULT_FILTER_ALL
-              ? "No tools match your filters. Try adjusting your search or filters."
-              : "No tools have been assigned yet."}
-          </p>
-          {(searchQuery ||
-            agentFilter !== DEFAULT_FILTER_ALL ||
-            originFilter !== DEFAULT_FILTER_ALL ||
-            credentialFilter !== DEFAULT_FILTER_ALL) && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                handleSearchChange("");
-                handleProfileFilterChange(DEFAULT_FILTER_ALL);
-                handleOriginFilterChange(DEFAULT_FILTER_ALL);
-                handleCredentialFilterChange(DEFAULT_FILTER_ALL);
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <LoadingSpinner />
+            </div>
+          ) : agentTools.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
+              <p className="mb-4 text-sm text-muted-foreground">
+                {searchQuery ||
+                agentFilter !== DEFAULT_FILTER_ALL ||
+                originFilter !== DEFAULT_FILTER_ALL ||
+                credentialFilter !== DEFAULT_FILTER_ALL
+                  ? "No tools match your filters. Try adjusting your search or filters."
+                  : "No tools have been assigned yet."}
+              </p>
+              {(searchQuery ||
+                agentFilter !== DEFAULT_FILTER_ALL ||
+                originFilter !== DEFAULT_FILTER_ALL ||
+                credentialFilter !== DEFAULT_FILTER_ALL) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    handleSearchChange("");
+                    handleProfileFilterChange(DEFAULT_FILTER_ALL);
+                    handleOriginFilterChange(DEFAULT_FILTER_ALL);
+                    handleCredentialFilterChange(DEFAULT_FILTER_ALL);
+                  }}
+                >
+                  Clear all filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={agentTools}
+              onRowClick={(tool, event) => {
+                const target = event.target as HTMLElement;
+                const isCheckboxClick =
+                  target.closest('[data-column-id="select"]') ||
+                  target.closest('input[type="checkbox"]') ||
+                  target.closest('button[role="checkbox"]') ||
+                  target.closest('button[role="switch"]');
+                if (!isCheckboxClick) {
+                  onToolClick(tool);
+                }
               }}
-            >
-              Clear all filters
-            </Button>
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
+              manualSorting={true}
+              manualPagination={true}
+              pagination={{
+                pageIndex,
+                pageSize,
+                total: agentToolsData?.pagination?.total ?? 0,
+              }}
+              onPaginationChange={handlePaginationChange}
+              rowSelection={rowSelection}
+              onRowSelectionChange={handleRowSelectionChange}
+            />
           )}
         </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={agentTools}
-          onRowClick={(tool, event) => {
-            const target = event.target as HTMLElement;
-            const isCheckboxClick =
-              target.closest('[data-column-id="select"]') ||
-              target.closest('input[type="checkbox"]') ||
-              target.closest('button[role="checkbox"]') ||
-              target.closest('button[role="switch"]');
-            if (!isCheckboxClick) {
-              onToolClick(tool);
-            }
-          }}
-          sorting={sorting}
-          onSortingChange={handleSortingChange}
-          manualSorting={true}
-          manualPagination={true}
-          pagination={{
-            pageIndex,
-            pageSize,
-            total: agentToolsData?.pagination?.total ?? 0,
-          }}
-          onPaginationChange={handlePaginationChange}
-          rowSelection={rowSelection}
-          onRowSelectionChange={handleRowSelectionChange}
-        />
-      )}
-    </div>
+      </div>
+    </PermissivePolicyOverlay>
   );
 }
